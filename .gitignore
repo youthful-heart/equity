@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+.venv/
+venv/
+env/
+
+# 系统
+.DS_Store
+Thumbs.db
+
+# 环境变量
+.env
+.env.*

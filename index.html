@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小米 DDX 每日对比</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #0f0f1a;
+            color: #e0e0e0;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        .container { max-width: 960px; margin: 0 auto; padding: 2rem 1rem; }
+        header {
+            text-align: center;
+            padding: 3rem 0 2rem;
+            border-bottom: 1px solid #2a2a3e;
+            margin-bottom: 2rem;
+        }
+        h1 {
+            font-size: 2.2rem;
+            background: linear-gradient(135deg, #FF6B35, #f7c948);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .subtitle { color: #888; margin-top: 0.5rem; font-size: 0.95rem; }
+        .stock-info {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            color: #aaa;
+        }
+        .stock-info span { background: #1a1a2e; padding: 0.3rem 1rem; border-radius: 20px; }
+        .latest-report {
+            background: #1a1a2e;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            border: 1px solid #2a2a3e;
+        }
+        .latest-report h2 { color: #f7c948; margin-bottom: 1rem; font-size: 1.2rem; }
+        .report-list { list-style: none; }
+        .report-list li {
+            padding: 0.8rem 1rem;
+            border-bottom: 1px solid #2a2a3e;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s;
+        }
+        .report-list li:hover { background: #252540; border-radius: 8px; }
+        .report-list li:last-child { border-bottom: none; }
+        .report-date { color: #888; font-size: 0.85rem; }
+        .report-link {
+            color: #64B5F6;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .report-link:hover { text-decoration: underline; }
+        .chart-section { margin-top: 2rem; }
+        .chart-section h2 { color: #f7c948; margin-bottom: 1rem; font-size: 1.2rem; }
+        .chart-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1rem;
+        }
+        .chart-card {
+            background: #1a1a2e;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #2a2a3e;
+        }
+        .chart-card img {
+            width: 100%;
+            display: block;
+        }
+        .chart-card .chart-label {
+            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
+            color: #888;
+            text-align: center;
+        }
+        .footer {
+            text-align: center;
+            padding: 2rem 0;
+            color: #555;
+            font-size: 0.85rem;
+            border-top: 1px solid #2a2a3e;
+            margin-top: 3rem;
+        }
+        .footer a { color: #64B5F6; text-decoration: none; }
+        .badge {
+            display: inline-block;
+            background: #FF6B35;
+            color: white;
+            padding: 0.15rem 0.6rem;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            margin-left: 0.5rem;
+        }
+        @media (max-width: 600px) {
+            h1 { font-size: 1.5rem; }
+            .stock-info { flex-direction: column; gap: 0.5rem; align-items: center; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 小米 DDX 每日对比</h1>
+            <p class="subtitle">Xiaomi Corporation (01810.HK) — 大单动向自动分析</p>
+            <div class="stock-info">
+                <span>📈 01810.HK</span>
+                <span>🤖 GitHub Actions 自动运行</span>
+                <span>💰 零成本</span>
+            </div>
+        </header>
+
+        <div class="latest-report" id="report-list">
+            <h2>📋 历史报告</h2>
+            <p style="color: #666; font-size: 0.9rem;">报告由 GitHub Actions 每日自动生成，首次运行后显示。</p>
+            <ul class="report-list" id="reports"></ul>
+        </div>
+
+        <div class="chart-section">
+            <h2>🖼️ DDX 趋势图</h2>
+            <div class="chart-grid" id="charts"></div>
+        </div>
+
+        <div class="footer">
+            <p>数据来源：东方财富 / AKShare / 公开免费接口</p>
+            <p>⚠️ 本工具仅供学习参考，不构成投资建议</p>
+            <p><a href="https://github.com">Fork 此仓库</a> 开始你的每日 DDX 分析</p>
+        </div>
+    </div>
+
+    <script>
+        // 通过 GitHub API 获取 output/ 目录下的文件列表
+        async function loadReports() {
+            try {
+                const repoPath = window.location.pathname.replace(/\/?$/, '');
+                const apiUrl = `https://api.github.com/repos${repoPath}/contents/output`;
+                
+                const resp = await fetch(apiUrl);
+                if (!resp.ok) throw new Error('API 请求失败');
+                
+                const files = await resp.json();
+                
+                const reports = files
+                    .filter(f => f.name.endsWith('.md') && f.name.startsWith('ddx_report_'))
+                    .sort((a, b) => b.name.localeCompare(a.name));
+                
+                const charts = files
+                    .filter(f => f.name.endsWith('.png') && f.name.startsWith('ddx_chart_'))
+                    .sort((a, b) => b.name.localeCompare(a.name));
+                
+                // 渲染报告列表
+                const reportList = document.getElementById('reports');
+                if (reports.length === 0) {
+                    reportList.innerHTML = '<li style="color:#666;text-align:center;padding:2rem;">暂无报告，等待首次运行...</li>';
+                } else {
+                    reports.forEach(r => {
+                        const date = r.name.replace('ddx_report_', '').replace('.md', '');
+                        const formattedDate = `${date.slice(0,4)}-${date.slice(4,6)}-${date.slice(6,8)}`;
+                        const li = document.createElement('li');
+                        li.innerHTML = `
+                            <span class="report-date">${formattedDate}</span>
+                            <a class="report-link" href="${r.path}" target="_blank">📄 查看报告</a>
+                        `;
+                        reportList.appendChild(li);
+                    });
+                }
+                
+                // 渲染图表
+                const chartGrid = document.getElementById('charts');
+                if (charts.length === 0) {
+                    chartGrid.innerHTML = '<p style="color:#666;text-align:center;padding:2rem;">暂无图表，等待首次运行...</p>';
+                } else {
+                    charts.forEach(c => {
+                        const date = c.name.replace('ddx_chart_', '').replace('.png', '');
+                        const formattedDate = `${date.slice(0,4)}-${date.slice(4,6)}-${date.slice(6,8)}`;
+                        const card = document.createElement('div');
+                        card.className = 'chart-card';
+                        card.innerHTML = `
+                            <a href="${c.path}" target="_blank">
+                                <img src="${c.path}" alt="DDX 趋势图 ${formattedDate}" loading="lazy">
+                            </a>
+                            <div class="chart-label">${formattedDate}</div>
+                        `;
+                        chartGrid.appendChild(card);
+                    });
+                }
+            } catch (e) {
+                console.log('加载报告列表失败（首次运行前正常）:', e.message);
+                document.getElementById('reports').innerHTML = 
+                    '<li style="color:#666;text-align:center;padding:2rem;">等待首次运行生成报告...</li>';
+            }
+        }
+        
+        loadReports();
+    </script>
+</body>
+</html>

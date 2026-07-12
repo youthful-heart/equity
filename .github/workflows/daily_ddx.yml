@@ -1,0 +1,102 @@
+name: 每日 DDX 对比
+
+# 触发条件
+on:
+  # 定时触发：每个交易日 16:30 UTC (北京时间 00:30，港股收盘后)
+  # 港股交易时间：9:30-16:00 HKT，16:00后数据已更新
+  schedule:
+    - cron: '30 8 * * 1-5'   # 周一至周五 UTC 08:30 = HKT 16:30
+
+  # 手动触发
+  workflow_dispatch:
+
+# 环境变量
+env:
+  STOCK_CODE: '01810'       # 小米集团港股代码
+  STOCK_NAME: '小米集团-W'   # 股票名称
+  MARKET: 'HK'              # 市场
+
+# 权限设置
+permissions:
+  contents: write
+
+jobs:
+  ddx_analysis:
+    name: DDX 分析 & 报告生成
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: 🔄 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 🐍 设置 Python 环境
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 📦 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r scripts/requirements.txt
+        env:
+          PIP_DEFAULT_TIMEOUT: 60
+
+      - name: 📊 运行 DDX 分析
+        run: |
+          python scripts/fetch_ddx.py \
+            --code ${{ env.STOCK_CODE }} \
+            --name "${{ env.STOCK_NAME }}" \
+            --days 60
+        env:
+          STOCK_CODE: ${{ env.STOCK_CODE }}
+          STOCK_NAME: ${{ env.STOCK_NAME }}
+          MARKET: ${{ env.MARKET }}
+
+      - name: 📤 提交报告到仓库
+        run: |
+          # 配置 Git
+          git config --local user.name "DDX Bot"
+          git config --local user.email "ddx-bot@github.com"
+
+          # 添加报告和图表
+          git add output/
+          
+          # 检查是否有变更
+          if git diff --cached --quiet; then
+            echo "📭 没有新的数据变更，跳过提交"
+          else
+            git commit -m "📊 DDX 每日对比报告 - $(date +'%Y-%m-%d %H:%M')"
+            git push
+            echo "✅ 报告已提交到仓库"
+          fi
+
+      - name: 📋 输出结果摘要
+        run: |
+          echo "## 📊 DDX 分析完成" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| 项目 | 状态 |" >> $GITHUB_STEP_SUMMARY
+          echo "|:-----|:----:|" >> $GITHUB_STEP_SUMMARY
+          echo "| 股票 | ${{ env.STOCK_NAME }} (${{ env.STOCK_CODE }}.HK) |" >> $GITHUB_STEP_SUMMARY
+          echo "| 运行时间 | $(date +'%Y-%m-%d %H:%M:%S') |" >> $GITHUB_STEP_SUMMARY
+          
+          # 报告文件
+          REPORT_FILE=$(ls output/ddx_report_*.md 2>/dev/null | tail -1)
+          CHART_FILE=$(ls output/ddx_chart_*.png 2>/dev/null | tail -1)
+          
+          if [ -n "$REPORT_FILE" ]; then
+            echo "| 报告 | [$REPORT_FILE](./$REPORT_FILE) |" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ -n "$CHART_FILE" ]; then
+            echo "| 图表 | [$CHART_FILE](./$CHART_FILE) |" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # 显示报告预览
+          if [ -n "$REPORT_FILE" ]; then
+            echo "### 📝 报告预览" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            head -60 "$REPORT_FILE" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi

@@ -2,7 +2,7 @@ name: 每日 DDX 对比
 
 # 触发条件
 on:
-  # 定时触发：每个交易日 16:30 UTC (北京时间 00:30，港股收盘后)
+  # 定时触发：每个交易日 16:30 HKT (UTC 08:30，港股收盘后)
   # 港股交易时间：9:30-16:00 HKT，16:00后数据已更新
   schedule:
     - cron: '30 8 * * 1-5'   # 周一至周五 UTC 08:30 = HKT 16:30
@@ -67,7 +67,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "📭 没有新的数据变更，跳过提交"
           else
-            git commit -m "📊 DDX 每日对比报告 - $(date +'%Y-%m-%d %H:%M')"
+            git commit -m "📊 DDX 每日对比报告 - $(TZ=Asia/Shanghai date +'%Y-%m-%d %H:%M')"
             git push
             echo "✅ 报告已提交到仓库"
           fi
@@ -79,7 +79,7 @@ jobs:
           echo "| 项目 | 状态 |" >> $GITHUB_STEP_SUMMARY
           echo "|:-----|:----:|" >> $GITHUB_STEP_SUMMARY
           echo "| 股票 | ${{ env.STOCK_NAME }} (${{ env.STOCK_CODE }}.HK) |" >> $GITHUB_STEP_SUMMARY
-          echo "| 运行时间 | $(date +'%Y-%m-%d %H:%M:%S') |" >> $GITHUB_STEP_SUMMARY
+          echo "| 运行时间 | $(TZ=Asia/Shanghai date +'%Y-%m-%d %H:%M:%S') |" >> $GITHUB_STEP_SUMMARY
           
           # 报告文件
           REPORT_FILE=$(ls output/ddx_report_*.md 2>/dev/null | tail -1)

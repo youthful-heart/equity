@@ -21,8 +21,13 @@ import os
 import sys
 import json
 import argparse
+import time as time_module
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+# 设置时区为北京时间（GitHub Actions 默认 UTC）
+os.environ['TZ'] = 'Asia/Shanghai'
+time_module.tzset()
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import config

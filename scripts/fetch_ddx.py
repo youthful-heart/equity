@@ -25,7 +25,7 @@ import time as time_module
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-# 设置时区为北京时间（GitHub Actions 默认 UTC）
+# 设置时区为北京时间
 os.environ['TZ'] = 'Asia/Shanghai'
 time_module.tzset()
 
